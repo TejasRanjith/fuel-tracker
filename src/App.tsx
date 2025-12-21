@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Camera, Save, History, Plus, Trash2, Fuel, Gauge, IndianRupee, ChevronRight, Upload, X, Check, Loader2, Info, Cloud, CloudOff } from 'lucide-react';
+import { Camera, Save, History, Plus, Trash2, Fuel, Gauge, IndianRupee, X, Check, Loader2, Info, Cloud, CloudOff } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
+
+// --- Global Type Declarations for Environment Variables ---
+declare const __firebase_config: string;
+declare const __app_id: string;
+declare const __initial_auth_token: string | undefined;
 
 // --- Firebase Initialization ---
 const firebaseConfig = JSON.parse(__firebase_config);
@@ -44,7 +49,7 @@ export default function App() {
     };
     initAuth();
     
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser: User | null) => {
       setUser(currentUser);
     });
     return () => unsubscribe();
@@ -57,7 +62,7 @@ export default function App() {
     // Path: /artifacts/{appId}/users/{userId}/fuel_logs
     const q = collection(db, 'artifacts', appId, 'users', user.uid, 'fuel_logs');
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
       const rawEntries = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -81,7 +86,7 @@ export default function App() {
 
       setEntries(computedEntries);
       setLoadingData(false);
-    }, (error) => {
+    }, (error: any) => {
       console.error("Error fetching data:", error);
       setLoadingData(false);
     });
@@ -165,7 +170,7 @@ export default function App() {
             <p>Syncing your history...</p>
           </div>
         ) : view === 'home' ? (
-          <Dashboard entries={entries} onAdd={() => setView('add')} onDelete={handleDelete} />
+          <Dashboard entries={entries} onDelete={handleDelete} />
         ) : (
           <AddEntryForm 
             onSave={handleSaveEntry} 
@@ -190,7 +195,7 @@ export default function App() {
 }
 
 // --- Dashboard Component ---
-const Dashboard = ({ entries, onAdd, onDelete }: { entries: FuelEntry[], onAdd: () => void, onDelete: (id: string) => void }) => {
+const Dashboard = ({ entries, onDelete }: { entries: FuelEntry[], onDelete: (id: string) => void }) => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
@@ -346,11 +351,16 @@ const AddEntryForm = ({
       await worker.terminate();
 
       const text = ret.data.text;
-      const numbers = text.match(/[\d,]+(\.\d+)?/g);
+      const numbers: string[] | null = text.match(/[\d,]+(\.\d+)?/g);
       
       if (numbers) {
-        const cleanNumbers = numbers.map(n => n.replace(/,/g, '')).filter(n => !isNaN(parseFloat(n)) && parseFloat(n) > 0);
-        const unique = Array.from(new Set(cleanNumbers)).sort((a, b) => parseFloat(b) - parseFloat(a));
+        // Explicitly type 'n' as string in map/filter functions
+        const cleanNumbers: string[] = numbers
+          .map((n: string) => n.replace(/,/g, ''))
+          .filter((n: string) => !isNaN(parseFloat(n)) && parseFloat(n) > 0);
+        
+        // Ensure unique is explicitly typed as string[]
+        const unique: string[] = Array.from(new Set(cleanNumbers)).sort((a: string, b: string) => parseFloat(b) - parseFloat(a));
         setDetectedNumbers(unique);
       } else {
         alert("No clear numbers detected.");
